@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>TechNova - Assistente Virtual</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0d6efd, #004aad);
+            color: white;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            width: 90%;
+            max-width: 800px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        header {
+            background: #0d6efd;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .chat-box {
+            height: 400px;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f8faff;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .msg {
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 70%;
+            line-height: 1.4;
+        }
+        .bot { background: #1a0665ff; align-self: flex-start; border-bottom-left-radius: 5px; }
+        .user { background: #0d6efd; color: white; align-self: flex-end; border-bottom-right-radius: 5px; }
+
+        .input-area {
+            display: flex;
+            padding: 15px;
+            background: white;
+            border-top: 1px solid #dee2e6;
+        }
+        input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        button {
+            margin-left: 10px;
+            padding: 12px 20px;
+            background: #0d6efd;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        button:hover { background: #0b5ed7; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>🤖 Assistente Virtual OliveiraIsaias</header>
+        <div class="chat-box" id="chatBox">
+            <div class="msg bot">Olá! Eu sou o assistente do OliveiraIsaias. Qual é o seu nome?</div>
+        </div>
+        <div class="input-area">
+            <input type="text" id="userInput" placeholder="Digite aqui..." autofocus>
+            <button onclick="enviar()">Enviar</button>
+        </div>
+    </div>
+
+    <script>
+        const chatBox = document.getElementById('chatBox');
+        const userInput = document.getElementById('userInput');
+
+        // ------------------------------------------------------------------
+        // CORREÇÃO: Carrega dados serializados e usa JSON.parse para converter
+        // ------------------------------------------------------------------
+        // Importante: a view DEVE usar 'categorias_json' e 'produtos_json'
+        // e o filtro '|escapejs' é usado para segurança.
+        const categorias = JSON.parse('{{ categorias_json|escapejs }}');
+        const produtos = JSON.parse('{{ produtos_json|escapejs }}');
+        // ------------------------------------------------------------------
+
+        let estado = 'aguardando_nome';
+        let nomeUsuario = '';
+
+        function adicionarMensagem(texto, tipo) {
+            const msg = document.createElement('div');
+            msg.className = `msg ${tipo}`;
+            msg.textContent = texto;
+            chatBox.appendChild(msg);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function enviar() {
+            const texto = userInput.value.trim();
+            if (!texto) return;
+
+            adicionarMensagem(texto, 'user');
+            userInput.value = '';
+
+            // Lógica do chatbot
+            if (estado === 'aguardando_nome') {
+                nomeUsuario = texto;
+                estado = 'aguardando_acao';
+                adicionarMensagem(`Olá, ${nomeUsuario}! Sou o assistente do OliveiraIsaias. Posso te ajudar a encontrar produtos.`, 'bot');
+                setTimeout(() => {
+                    adicionarMensagem(`Deseja pesquisar um produto? Digite o nome ou diga "ver categorias".`, 'bot');
+                }, 800);
+            }
+            else if (estado === 'aguardando_acao') {
+                if (texto.toLowerCase().includes('categoria') || texto.toLowerCase() === 'ver categorias') {
+                    // Acessa o campo 'fields.nome' que é padrão na serialização do Django
+                    const listaCategorias = categorias.map(c => c.fields.nome).join(', ');
+                    adicionarMensagem(`Temos as seguintes categorias: ${listaCategorias}`, 'bot');
+                }
+                else {
+                    // Busca por produto
+                    const termo = texto.toLowerCase();
+                    // Filtra os produtos
+                    const produtoEncontrado = produtos.find(p => p.fields.nome.toLowerCase().includes(termo));
+
+                    if (produtoEncontrado) {
+                        const nome = produtoEncontrado.fields.nome;
+                        const preco = produtoEncontrado.fields.preco;
+                        const categoriaId = produtoEncontrado.fields.categoria;
+                        
+                        // Busca o nome da categoria usando o ID
+                        const categoriaNome = categorias.find(c => c.pk == categoriaId)?.fields.nome || 'Sem categoria';
+
+                        adicionarMensagem(
+                            ` Encontrei!\n\n *${nome}*\n Preço: R$ ${preco}\n Categoria: ${categoriaNome}\n\nÓtima escolha, ${nomeUsuario}!`,
+                            'bot'
+                        );
+                    }
+                    else {
+                        adicionarMensagem(
+                            `Desculpe, ${nomeUsuario}, não encontrei um produto com "${texto}".\nTente novamente ou digite "ver categorias" para ver nossas opções.`,
+                            'bot'
+                        );
+                    }
+                }
+            }
+        }
+
+        // Enviar com Enter
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') enviar();
+        });
+    </script>
+</body>
+</html>
